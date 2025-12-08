@@ -1,6 +1,7 @@
 ---
 - name: Check for OS updates and fail if any are available
   hosts: all
+  become: false
   gather_facts: yes
 
   tasks:
