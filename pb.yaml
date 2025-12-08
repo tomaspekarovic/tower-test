@@ -1,16 +1,16 @@
 ---
 - name: Check for OS updates and fail if any are available
   hosts: all
-  become: yes
   gather_facts: yes
 
   tasks:
-    - name: Check for package updates on Debian/Ubuntu
-      ansible.builtin.apt:
-        upgrade: dist
-        update_cache: yes
-      check_mode: true
+    - name: Check for package updates on Debian/Ubuntu (via sudo apt-get -s)
+      ansible.builtin.shell: |
+        sudo apt-get -s dist-upgrade | awk '/^Inst / {print $2}'
       register: apt_result
+      changed_when: apt_result.stdout != ""
+      failed_when: apt_result.rc != 0
+      check_mode: no        # still run even with --check
       when: ansible_os_family == "Debian"
 
     - name: Fail if updates are available on Debian/Ubuntu
@@ -20,15 +20,19 @@
           (Debian/Ubuntu). Please update before continuing.
       when:
         - ansible_os_family == "Debian"
-        - apt_result is changed
+        - apt_result.stdout != ""
 
-    - name: Check for package updates on RHEL/Rocky
-      ansible.builtin.dnf:
-        name: "*"
-        state: latest
-        update_cache: yes
-      check_mode: true
+    - name: Check for package updates on RHEL/Rocky (via sudo dnf check-update)
+      ansible.builtin.shell: |
+        sudo dnf -q check-update
       register: dnf_result
+      # dnf check-update returns:
+      #  0   = no updates
+      #  100 = updates available
+      # >100 = error
+      failed_when: dnf_result.rc not in [0, 100]
+      changed_when: dnf_result.rc == 100
+      check_mode: no
       when: ansible_os_family == "RedHat"
 
     - name: Fail if updates are available on RHEL/Rocky
@@ -38,4 +42,4 @@
           (RHEL/Rocky). Please update before continuing.
       when:
         - ansible_os_family == "RedHat"
-        - dnf_result is changed
+        - dnf_result.rc == 100
