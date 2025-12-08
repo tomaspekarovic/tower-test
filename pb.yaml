@@ -1,0 +1,41 @@
+---
+- name: Check for OS updates and fail if any are available
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Check for package updates on Debian/Ubuntu
+      ansible.builtin.apt:
+        upgrade: dist
+        update_cache: yes
+      check_mode: true
+      register: apt_result
+      when: ansible_os_family == "Debian"
+
+    - name: Fail if updates are available on Debian/Ubuntu
+      ansible.builtin.fail:
+        msg: >
+          There are pending package updates on this host
+          (Debian/Ubuntu). Please update before continuing.
+      when:
+        - ansible_os_family == "Debian"
+        - apt_result is changed
+
+    - name: Check for package updates on RHEL/Rocky
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+        update_cache: yes
+      check_mode: true
+      register: dnf_result
+      when: ansible_os_family == "RedHat"
+
+    - name: Fail if updates are available on RHEL/Rocky
+      ansible.builtin.fail:
+        msg: >
+          There are pending package updates on this host
+          (RHEL/Rocky). Please update before continuing.
+      when:
+        - ansible_os_family == "RedHat"
+        - dnf_result is changed
