@@ -5,9 +5,15 @@
   gather_facts: yes
 
   tasks:
-    - name: Check for package updates on Debian/Ubuntu (via sudo apt-get -s)
+    - name: Check for package updates on Debian/Ubuntu (via sudo apt)
       ansible.builtin.shell: |
-        sudo apt-get -s dist-upgrade | awk '/^Inst / {print $2}'
+        set -e
+        # Refresh package lists
+        sudo apt update -y > /dev/null 2>&1
+
+        # List upgradable packages, skip the "Listing..." header line
+        sudo apt list --upgradable 2>/dev/null \
+          | awk -F/ 'NR>1 {print $1}'
       register: apt_result
       changed_when: apt_result.stdout != ""
       failed_when: apt_result.rc != 0
